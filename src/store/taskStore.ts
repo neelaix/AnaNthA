@@ -6,7 +6,6 @@ import { generateRecurrenceInstances } from '../utils/recurrence';
 interface TaskState {
   tasks: Task[];
   categories: Category[];
-  hasSeeded: boolean;
   
   // Task actions
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -29,7 +28,6 @@ interface TaskState {
   
   // Utility
   importData: (tasks: Task[], categories: Category[]) => void;
-  seedDemoData: () => void;
   clearAll: () => void;
 }
 
@@ -48,7 +46,6 @@ export const useTaskStore = create<TaskState>()(
     (set, get) => ({
       tasks: [],
       categories: defaultCategories,
-      hasSeeded: false,
 
       // Task actions
       addTask: (taskData) => {
@@ -194,113 +191,21 @@ export const useTaskStore = create<TaskState>()(
         set({ tasks, categories: mergedCategories });
       },
 
-      seedDemoData: () => {
-        if (get().hasSeeded || get().tasks.length > 0) {
-          set({ hasSeeded: true });
-          return;
-        }
-
-        const dayOffset = (offset: number, time = '09:00') => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const date = new Date();
-          date.setDate(date.getDate() + offset);
-          date.setHours(hours, minutes, 0, 0);
-          return date;
-        };
-
-        const now = new Date();
-        const demo: Array<Omit<Task, 'id'>> = [
-          {
-            title: 'Review sprint backlog',
-            description: 'Prioritize tickets for the next sprint.',
-            priority: 'high',
-            category: 'work',
-            tags: ['work', 'planning'],
-            deadline: dayOffset(0, '10:00'),
-            time: '10:00',
-            completed: false,
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            title: '30-minute workout',
-            description: 'Strength training and stretching.',
-            priority: 'medium',
-            category: 'health',
-            tags: ['health'],
-            deadline: dayOffset(0, '18:30'),
-            time: '18:30',
-            completed: false,
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            title: 'Read two chapters',
-            description: 'Continue the current non-fiction book.',
-            priority: 'low',
-            category: 'study',
-            tags: ['reading'],
-            deadline: dayOffset(1),
-            completed: false,
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            title: 'Prepare project demo',
-            description: 'Walk through the new dashboard with the team.',
-            priority: 'urgent',
-            category: 'work',
-            tags: ['work', 'presentation'],
-            deadline: dayOffset(2, '14:00'),
-            time: '14:00',
-            completed: false,
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            title: 'Grocery run',
-            description: 'Restock fruit, vegetables and coffee.',
-            priority: 'medium',
-            category: 'personal',
-            tags: ['errand'],
-            deadline: dayOffset(3),
-            completed: false,
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            title: 'Write weekly summary',
-            description: 'Summarize completed work and blockers.',
-            priority: 'medium',
-            category: 'work',
-            tags: ['work'],
-            deadline: dayOffset(-1),
-            completed: true,
-            completedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          },
-        ];
-
-        set({
-          tasks: demo.map((task, index) => ({
-            ...task,
-            id: `task-demo-${index}`,
-          })),
-          hasSeeded: true,
-        });
-      },
-
       clearAll: () => {
         set({
           tasks: [],
           categories: defaultCategories,
-          hasSeeded: true,
         });
       },
     }),
     {
       name: 'anantha-task-store',
+      version: 1,
+      migrate: (persistedState: any) => ({
+        ...persistedState,
+        tasks: [],
+        categories: defaultCategories,
+      }),
     }
   )
 );

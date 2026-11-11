@@ -56,11 +56,7 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
   const [currentPage, setCurrentPage] = useState('today');
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const seedDemoData = useTaskStore((state) => state.seedDemoData);
-
   useEffect(() => {
-    seedDemoData();
-
     // Surface due/overdue tasks once per browser session
     if (sessionStorage.getItem('anantha-due-checked')) return;
     useTaskStore
@@ -68,7 +64,7 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
       .tasks.filter((task) => !task.completed && task.deadline)
       .forEach((task) => NotificationManager.notifyTaskDue(task));
     sessionStorage.setItem('anantha-due-checked', '1');
-  }, [seedDemoData]);
+  }, []);
 
   const handleOpenTaskForm = () => setIsTaskFormOpen(true);
   const handleCloseTaskForm = () => setIsTaskFormOpen(false);
