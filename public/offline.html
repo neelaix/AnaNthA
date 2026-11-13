@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <title>ANAṆTHA — Offline</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        font-family: Inter, system-ui, sans-serif; color: #f0ecff;
+        background: radial-gradient(1200px 800px at 20% 0%, #3b2667 0%, #1a1a2e 45%, #0f0f1e 100%);
+        padding: 24px;
+      }
+      .card {
+        width: min(440px, 100%); text-align: center; padding: 40px 28px;
+        border-radius: 28px; background: rgba(26, 26, 46, 0.72);
+        border: 1px solid rgba(184, 168, 255, 0.22);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(18px);
+      }
+      .mark { font-size: 46px; color: #b8a8ff; margin-bottom: 8px; }
+      h1 { font-size: 22px; margin: 0 0 8px; letter-spacing: 0.18em; }
+      p { color: #c7b5ff; line-height: 1.6; margin: 0 0 22px; font-size: 14px; }
+      button {
+        border: 0; border-radius: 14px; padding: 12px 22px; cursor: pointer;
+        font-weight: 700; color: #0f0f1e; background: linear-gradient(135deg, #dcd5ff, #9d88ff);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="mark">∞</div>
+      <h1>ANAṆTHA</h1>
+      <p>You're offline. Your tasks are stored on this device and will be here when you reconnect. Reminders already scheduled on the server will still fire.</p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>

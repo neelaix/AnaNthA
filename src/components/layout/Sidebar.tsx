@@ -7,6 +7,7 @@ import {
   BarChart3,
   Zap,
   Settings,
+  Bell,
   ChevronLeft,
   Plus,
   CheckCircle2,
@@ -49,6 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage = 'today', onNavigate, on
   const analyticsNav: NavItem[] = [
     { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" />, href: '/analytics' },
     { id: 'focus', label: 'Focus Mode', icon: <Zap className="w-5 h-5" />, href: '/focus' },
+    { id: 'notifications-settings', label: 'Notifications', icon: <Bell className="w-5 h-5" />, href: '/notifications' },
   ];
 
   const NavLink = ({ item, isActive }: { item: NavItem; isActive?: boolean }) => (

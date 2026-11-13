@@ -3,7 +3,12 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import FloatingActionButton from '../tasks/FloatingActionButton';
 import TaskForm from '../tasks/TaskForm';
+import NotificationSync from '../notifications/NotificationSync';
 import { useTaskStore } from '../../store/taskStore';
+import { useUIStore } from '../../store/uiStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useReminderSync } from '../../hooks/useReminderSync';
+import { convexEnabled } from '../../lib/convex';
 import { NotificationManager } from '../../utils/notifications';
 
 const Dashboard  = lazy(() => import('../../pages/Dashboard'));
@@ -13,6 +18,7 @@ const Analytics  = lazy(() => import('../../pages/Analytics'));
 const FocusMode  = lazy(() => import('../../pages/FocusMode'));
 const Categories = lazy(() => import('../../pages/Categories'));
 const Settings   = lazy(() => import('../../pages/Settings'));
+const NotificationSettings = lazy(() => import('../../pages/NotificationSettings'));
 
 interface AppLayoutProps {
   children?: React.ReactNode;
@@ -46,6 +52,8 @@ const renderPage = (page: string): React.ReactNode => {
       return <Categories />;
     case 'settings':
       return <Settings />;
+    case 'notifications-settings':
+      return <NotificationSettings />;
     case 'today':
     default:
       return <Dashboard />;
@@ -56,8 +64,46 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
   const [currentPage, setCurrentPage] = useState('today');
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const openTask = useUIStore((state) => state.openTask);
+
+  useReminderSync();
+
   useEffect(() => {
-    // Surface due/overdue tasks once per browser session
+    void useWorkspaceStore.getState().ensure();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get('task');
+    const page = params.get('page');
+    if (taskId) {
+      openTask(taskId);
+      setCurrentPage('all');
+    } else if (page) {
+      setCurrentPage(page);
+    }
+    if (taskId || page) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('task');
+      url.searchParams.delete('page');
+      url.searchParams.delete('notification');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [openTask]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OPEN_TASK' && event.data.taskId) {
+        openTask(event.data.taskId);
+        setCurrentPage('all');
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, [openTask]);
+
+  useEffect(() => {
     if (sessionStorage.getItem('anantha-due-checked')) return;
     useTaskStore
       .getState()
@@ -78,6 +124,7 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-midnight-50 dark:bg-midnight-950">
+      {convexEnabled && <NotificationSync />}
       <Header
         onOpenTaskForm={handleOpenTaskForm}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen((v) => !v)}

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useTasks } from '../hooks/useTasks';
+import { useTaskStore } from '../store/taskStore';
+import { useUIStore } from '../store/uiStore';
 import { useTaskFilters } from '../hooks/useTaskFilters';
 import { Task } from '../types';
 import Button from '../components/ui/Button';
@@ -24,6 +26,18 @@ const Tasks: React.FC<TasksProps> = ({ filter, categoryId }) => {
 
   const { getTasks, getCategories, deleteTask, completeTask } = useTasks();
   const rawTasks = getTasks();
+  const pendingTaskId = useUIStore((state) => state.pendingTaskId);
+  const consumePendingTask = useUIStore((state) => state.consumePendingTask);
+
+  useEffect(() => {
+    if (!pendingTaskId) return;
+    const task = useTaskStore.getState().tasks.find((t) => t.id === pendingTaskId);
+    consumePendingTask();
+    if (task) {
+      setEditingTask(task);
+      setIsFormOpen(true);
+    }
+  }, [pendingTaskId, consumePendingTask]);
   const activeCategory = categoryId
     ? getCategories().find((c) => c.id === categoryId)
     : undefined;

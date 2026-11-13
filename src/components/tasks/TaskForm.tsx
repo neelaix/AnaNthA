@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Task, Priority, RecurrenceRule } from '../../types';
-import { Button, Input, Textarea, Select, Checkbox } from '../ui';
+import type { ReminderConfig } from '../../types';
+import { Button, Input, Textarea, Select } from '../ui';
 import Modal from '../ui/Modal';
 import RecurrenceSelector from './RecurrenceSelector';
 import { useTasks } from '../../hooks/useTasks';
 import { useSettings } from '../../hooks/useSettings';
-import { NotificationManager } from '../../utils/notifications';
+import ReminderEditor from './ReminderEditor';
+import { DEFAULT_REMINDER_CONFIG } from '../../utils/reminderEngine';
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -40,13 +42,14 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
   const [deadline, setDeadline] = useState('');
   const [time, setTime] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceRule | undefined>();
-  const [reminderMinutes, setReminderMinutes] = useState(30);
-  const [enableReminder, setEnableReminder] = useState(false);
+  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
+    ...DEFAULT_REMINDER_CONFIG,
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { addTask, updateTask, getCategories } = useTasks();
-  const { defaultPriority, defaultCategory } = useSettings();
+  const { defaultPriority, defaultCategory, defaultReminderMinutes } = useSettings();
   const categories = getCategories();
 
   useEffect(() => {
@@ -59,8 +62,17 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
       setDeadline(toDateInputValue(editingTask.deadline));
       setTime(editingTask.time || '');
       setRecurrence(editingTask.recurrence);
-      setEnableReminder(Boolean(editingTask.reminderTime));
-      setReminderMinutes(editingTask.reminderCustomMinutes ?? 30);
+      setReminderConfig(
+        editingTask.reminder ?? {
+          ...DEFAULT_REMINDER_CONFIG,
+          enabled: Boolean(editingTask.reminderTime),
+          time: editingTask.time,
+          offsets: [
+            editingTask.reminderCustomMinutes ?? defaultReminderMinutes,
+          ],
+          notifyAtDeadline: editingTask.reminderTime === 'on-time',
+        },
+      );
     } else {
       // Reset form
       setTitle('');
@@ -71,11 +83,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
       setDeadline('');
       setTime('');
       setRecurrence(undefined);
-      setEnableReminder(false);
-      setReminderMinutes(30);
+      setReminderConfig({
+        ...DEFAULT_REMINDER_CONFIG,
+        offsets: [defaultReminderMinutes],
+      });
     }
     setErrors({});
-  }, [editingTask, isOpen, defaultPriority, defaultCategory]);
+  }, [editingTask, isOpen, defaultPriority, defaultCategory, defaultReminderMinutes]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -123,8 +137,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
         deadline: parsedDeadline,
         time: time || undefined,
         recurrence: recurrence,
-        reminderTime: enableReminder ? ('custom' as const) : undefined,
-        reminderCustomMinutes: enableReminder ? reminderMinutes : undefined,
+        reminder: reminderConfig,
+        reminderTime: reminderConfig.enabled ? ('custom' as const) : undefined,
+        reminderCustomMinutes: reminderConfig.enabled
+          ? reminderConfig.offsets[0] ?? defaultReminderMinutes
+          : undefined,
       };
 
       if (editingTask) {
@@ -136,23 +153,6 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
         } as any);
       }
 
-      if (parsedDeadline) {
-        if (enableReminder) {
-          NotificationManager.setDeadlineReminder(
-            {
-              ...taskData,
-              id: editingTask?.id ?? 'new-task',
-              completed: false,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as Task,
-            reminderMinutes
-          );
-        } else if (editingTask) {
-          NotificationManager.clearReminder(editingTask.id);
-        }
-      }
-
       // Reset and close
       setTitle('');
       setDescription('');
@@ -162,8 +162,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
       setDeadline('');
       setTime('');
       setRecurrence(undefined);
-      setEnableReminder(false);
-      setReminderMinutes(30);
+      setReminderConfig({
+        ...DEFAULT_REMINDER_CONFIG,
+        offsets: [defaultReminderMinutes],
+      });
       onClose();
     } catch (error) {
       console.error('Error saving task:', error);
@@ -268,43 +270,14 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
           onChange={setRecurrence}
         />
 
-        {/* Reminder Settings */}
-        {deadline && (
-          <div className="p-4 rounded-lg bg-lavender-50 dark:bg-midnight-800/50 border border-lavender-200 dark:border-midnight-700 space-y-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="enable-reminder"
-                checked={enableReminder}
-                onChange={(e) => setEnableReminder(e.target.checked)}
-                className="w-4 h-4 rounded border-midnight-300 dark:border-midnight-600 text-lavender-600 focus:ring-lavender-500"
-              />
-              <label htmlFor="enable-reminder" className="text-sm font-medium text-midnight-900 dark:text-midnight-50">
-                Set Reminder
-              </label>
-            </div>
-
-            {enableReminder && (
-              <div className="flex items-center gap-2 ml-6">
-                <label htmlFor="reminder-time" className="text-xs text-midnight-600 dark:text-midnight-400">
-                  Remind me
-                </label>
-                <Input
-                  id="reminder-time"
-                  type="number"
-                  min="1"
-                  max="1440"
-                  value={reminderMinutes}
-                  onChange={(e) => setReminderMinutes(Math.max(1, parseInt(e.target.value) || 30))}
-                  className="w-20 text-sm"
-                />
-                <span className="text-xs text-midnight-600 dark:text-midnight-400">
-                  minutes before
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Smart Reminders */}
+        <ReminderEditor
+          value={reminderConfig}
+          onChange={setReminderConfig}
+          deadline={deadline}
+          time={time}
+          defaultMinutes={defaultReminderMinutes}
+        />
 
         {/* Tags */}
         <Input

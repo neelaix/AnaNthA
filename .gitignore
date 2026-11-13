@@ -23,6 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
+# Convex local state
+.convex/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
 # Environment
 .env
 .env.local

@@ -16,6 +16,19 @@ const defaultSettings: Settings = {
   defaultCategory: 'personal',
   workingHoursStart: '09:00',
   workingHoursEnd: '18:00',
+
+  pushEnabled: false,
+  taskReminders: true,
+  deadlineAlerts: true,
+  dailyMotivation: false,
+  recurringReminders: true,
+  notificationSound: 'default',
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+  urgentBypassQuietHours: true,
+  dailyMotivationTime: '08:00',
+  defaultReminderMinutes: 30,
 };
 
 export const useSettingsStore = create<SettingsState>()(

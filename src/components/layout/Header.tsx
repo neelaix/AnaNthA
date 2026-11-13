@@ -19,6 +19,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onNavigate }) =>
     markAsRead,
     removeNotification,
     markAllAsRead,
+    clearAll,
   } = useNotifications();
 
   const toggleTheme = () => {
@@ -55,6 +56,8 @@ const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onNavigate }) =>
             onMarkAsRead={markAsRead}
             onRemove={removeNotification}
             onMarkAllAsRead={markAllAsRead}
+            onClearAll={clearAll}
+            onNavigate={onNavigate}
           />
 
           <Button

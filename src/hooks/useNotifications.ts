@@ -1,73 +1,97 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { api } from '../../convex/_generated/api';
+import { convex, convexEnabled } from '../lib/convex';
+import { useNotificationStore } from '../store/notificationStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
+import type { NotificationCategory, Task } from '../types';
 import { Notification, NotificationManager } from '../utils/notifications';
-import { Task } from '../types';
+
+type NewNotification = {
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  taskId?: string;
+};
+
+function remoteAuth() {
+  const identity = useWorkspaceStore.getState().identity;
+  if (!convexEnabled || !convex || !identity) return null;
+  return {
+    client: convex,
+    identity,
+    auth: {
+      workspaceId: identity.workspaceId,
+      deviceId: identity.deviceId,
+      token: identity.token,
+    },
+  };
+}
+
+function isRemoteId(id: string) {
+  return !id.startsWith('local-');
+}
 
 export const useNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const notifications = useNotificationStore((state) => state.notifications);
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
-  useEffect(() => {
-    // Initialize notification system
-    NotificationManager.initialize();
-
-    // Subscribe to notification changes
-    const unsubscribe = NotificationManager.subscribe((notifs) => {
-      setNotifications(notifs);
-      setUnreadCount(NotificationManager.getUnreadCount());
-    });
-
-    // Set initial state
-    setNotifications(NotificationManager.getNotifications());
-    setUnreadCount(NotificationManager.getUnreadCount());
-
-    return unsubscribe;
+  const addNotification = useCallback((notification: NewNotification) => {
+    return useNotificationStore.getState().addLocal(notification);
   }, []);
-
-  const addNotification = useCallback(
-    (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
-      return NotificationManager.addNotification(notification);
-    },
-    []
-  );
 
   const notifyTaskDue = useCallback((task: Task) => {
     NotificationManager.notifyTaskDue(task);
   }, []);
 
-  const setReminder = useCallback((task: Task, reminderTime: Date) => {
-    NotificationManager.setReminder(task, reminderTime);
-  }, []);
-
-  const setDeadlineReminder = useCallback((task: Task, minutesBefore: number = 30) => {
-    NotificationManager.setDeadlineReminder(task, minutesBefore);
-  }, []);
-
-  const clearReminder = useCallback((taskId: string) => {
-    NotificationManager.clearReminder(taskId);
-  }, []);
-
-  const clearAllReminders = useCallback(() => {
-    NotificationManager.clearAllReminders();
-  }, []);
+  const setReminder = useCallback((_task: Task, _reminderTime: Date) => {}, []);
+  const setDeadlineReminder = useCallback((_task: Task, _minutesBefore = 30) => {}, []);
+  const clearReminder = useCallback((_taskId: string) => {}, []);
+  const clearAllReminders = useCallback(() => {}, []);
 
   const markAsRead = useCallback((notificationId: string) => {
-    NotificationManager.markAsRead(notificationId);
+    useNotificationStore.getState().markAsRead(notificationId);
+    const remote = remoteAuth();
+    if (remote && isRemoteId(notificationId)) {
+      void remote.client
+        .mutation(api.notifications.markRead, {
+          ...remote.auth,
+          notificationId,
+        })
+        .catch(() => undefined);
+    }
   }, []);
 
   const markAllAsRead = useCallback(() => {
-    NotificationManager.markAllAsRead();
+    useNotificationStore.getState().markAllAsRead();
+    const remote = remoteAuth();
+    if (remote) {
+      void remote.client.mutation(api.notifications.markAllRead, remote.auth).catch(() => undefined);
+    }
   }, []);
 
   const removeNotification = useCallback((notificationId: string) => {
-    NotificationManager.removeNotification(notificationId);
+    useNotificationStore.getState().remove(notificationId);
+    const remote = remoteAuth();
+    if (remote && isRemoteId(notificationId)) {
+      void remote.client
+        .mutation(api.notifications.remove, {
+          ...remote.auth,
+          notificationId,
+        })
+        .catch(() => undefined);
+    }
   }, []);
 
   const clearAll = useCallback(() => {
-    NotificationManager.clearAll();
+    useNotificationStore.getState().clearAll();
+    const remote = remoteAuth();
+    if (remote) {
+      void remote.client.mutation(api.notifications.clearAll, remote.auth).catch(() => undefined);
+    }
   }, []);
 
   return {
-    notifications,
+    notifications: notifications as Notification[],
     unreadCount,
     addNotification,
     notifyTaskDue,

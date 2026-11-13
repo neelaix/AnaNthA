@@ -2,6 +2,30 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 export type TaskStatus = 'pending' | 'completed' | 'overdue';
 export type ThemeMode = 'light' | 'dark' | 'system';
+export type ReminderPriority = 'low' | 'normal' | 'high';
+export type ReminderRepeat = 'none' | 'daily' | 'weekly' | 'monthly';
+export type NotificationSound = 'default' | 'soft' | 'urgent' | 'silent';
+export type NotificationCategory =
+  | 'task-reminder'
+  | 'deadline-alert'
+  | 'daily-motivation'
+  | 'system';
+
+export interface ReminderConfig {
+  enabled: boolean;
+  /** Optional explicit reminder date (yyyy-MM-dd). */
+  date?: string;
+  /** Optional reminder time-of-day (HH:mm). */
+  time?: string;
+  /** Minutes before the deadline to remind, e.g. [10, 30, 60]. */
+  offsets: number[];
+  /** Also notify exactly at the deadline. */
+  notifyAtDeadline: boolean;
+  priority: ReminderPriority;
+  repeat: ReminderRepeat;
+  /** Custom notification message. Falls back to a generated message. */
+  message?: string;
+}
 
 export interface RecurrenceRule {
   frequency: RecurrenceFrequency;
@@ -27,6 +51,7 @@ export interface Task {
   updatedAt: Date;
   reminderTime?: 'on-time' | '1hour-before' | '1day-before' | 'custom';
   reminderCustomMinutes?: number;
+  reminder?: ReminderConfig;
 }
 
 export interface Category {
@@ -75,6 +100,20 @@ export interface Settings {
   defaultCategory: string;
   workingHoursStart?: string;
   workingHoursEnd?: string;
+
+  // Push notification preferences
+  pushEnabled: boolean;
+  taskReminders: boolean;
+  deadlineAlerts: boolean;
+  dailyMotivation: boolean;
+  recurringReminders: boolean;
+  notificationSound: NotificationSound;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  urgentBypassQuietHours: boolean;
+  dailyMotivationTime: string;
+  defaultReminderMinutes: number;
 }
 
 export interface AppState {

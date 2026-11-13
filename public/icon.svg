@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1a2e"/>
+      <stop offset="0.55" stop-color="#3b2667"/>
+      <stop offset="1" stop-color="#0f0f1e"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6deff"/>
+      <stop offset="0.5" stop-color="#b8a8ff"/>
+      <stop offset="1" stop-color="#7d5fff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="404" cy="108" r="70" fill="#7d5fff" opacity="0.18"/>
+  <circle cx="104" cy="420" r="96" fill="#b8a8ff" opacity="0.12"/>
+  <g filter="url(#glow)" fill="none" stroke="url(#ink)" stroke-width="34" stroke-linecap="round">
+    <path d="M256 256 C 208 196, 140 196, 140 256 C 140 316, 208 316, 256 256 C 304 196, 372 196, 372 256 C 372 316, 304 316, 256 256 Z"/>
+  </g>
+  <text x="256" y="388" text-anchor="middle" font-family="Manrope, Inter, sans-serif" font-size="46" font-weight="700" letter-spacing="10" fill="#dcd5ff" opacity="0.9">ANANTHA</text>
+</svg>
