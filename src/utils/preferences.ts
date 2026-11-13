@@ -9,7 +9,24 @@ export async function pushPreferences(partial: Partial<Settings>): Promise<void>
   const identity = useWorkspaceStore.getState().identity;
   if (!identity) return;
 
-  const payload: Record<string, unknown> = {
+  const payload: {
+    workspaceId: string;
+    deviceId: string;
+    token: string;
+    timezone: string;
+    pushEnabled?: boolean;
+    taskReminders?: boolean;
+    deadlineAlerts?: boolean;
+    dailyMotivation?: boolean;
+    recurringReminders?: boolean;
+    sound?: Settings['notificationSound'];
+    quietHoursEnabled?: boolean;
+    quietHoursStart?: string;
+    quietHoursEnd?: string;
+    urgentBypassQuietHours?: boolean;
+    dailyMotivationTime?: string;
+    defaultReminderMinutes?: number;
+  } = {
     workspaceId: identity.workspaceId,
     deviceId: identity.deviceId,
     token: identity.token,

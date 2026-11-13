@@ -26,6 +26,9 @@ dist-ssr
 # Convex local state
 .convex/
 
+# Vercel project link
+.vercel/
+
 # Playwright MCP artifacts
 .playwright-mcp/
 
@@ -33,3 +36,6 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+.vercel
+.env*

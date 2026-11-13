@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 import { convex, convexEnabled } from '../lib/convex';
 import { useNotificationStore } from '../store/notificationStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -55,7 +56,7 @@ export const useNotifications = () => {
       void remote.client
         .mutation(api.notifications.markRead, {
           ...remote.auth,
-          notificationId,
+          notificationId: notificationId as Id<'notifications'>,
         })
         .catch(() => undefined);
     }
@@ -76,7 +77,7 @@ export const useNotifications = () => {
       void remote.client
         .mutation(api.notifications.remove, {
           ...remote.auth,
-          notificationId,
+          notificationId: notificationId as Id<'notifications'>,
         })
         .catch(() => undefined);
     }

@@ -14,6 +14,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 import { convex, convexEnabled } from '../lib/convex';
 import { usePush } from '../hooks/usePush';
 import { useSettings } from '../hooks/useSettings';
@@ -228,7 +229,10 @@ const NotificationSettings: React.FC = () => {
   const handleRemoveSubscription = async (subscriptionId: string) => {
     if (!auth || !convexEnabled || !convex) return;
     try {
-      await convex.mutation(api.subscriptions.remove, { ...auth, subscriptionId });
+      await convex.mutation(api.subscriptions.remove, {
+        ...auth,
+        subscriptionId: subscriptionId as Id<'subscriptions'>,
+      });
       const device = devices.find((item) =>
         item.subscriptions.some((subscription) => subscription.id === subscriptionId),
       );

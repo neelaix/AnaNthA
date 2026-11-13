@@ -1,6 +1,6 @@
 'use node';
 
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import { v } from 'convex/values';
 import { action, internalAction } from './_generated/server';
 import { internal } from './_generated/api';
@@ -83,7 +83,20 @@ export const sendDue = internalAction({
   handler: async (ctx) => {
     configureWebPush();
     const now = Date.now();
-    const claimed = await ctx.runMutation(internal.reminders.claimDue, { now });
+    const claimed = (await ctx.runMutation(internal.reminders.claimDue, { now })) as Array<{
+      _id: any;
+      workspaceId: string;
+      taskId: string;
+      occurrenceId: string;
+      category: 'task-reminder' | 'deadline-alert';
+      title: string;
+      body: string;
+      fireAt: number;
+      timezone: string;
+      priority: 'low' | 'normal' | 'high';
+      repeat: string;
+      attempts: number;
+    }>;
 
     let sent = 0;
     let failed = 0;
