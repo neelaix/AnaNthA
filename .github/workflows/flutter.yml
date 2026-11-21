@@ -1,0 +1,53 @@
+name: anantha-build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc -p convex/tsconfig.json --noEmit
+
+  flutter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/anantha_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter create --platforms=android,ios,web --org app.anantha --project-name anantha .
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter build web --release --base-href=/app/ --dart-define=CONVEX_URL=https://exciting-salmon-603.convex.cloud
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web
+          path: apps/anantha_app/build/web
+
+  ios:
+    runs-on: macos-latest
+    if: false
+    defaults:
+      run:
+        working-directory: apps/anantha_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms=ios --org app.anantha --project-name anantha .
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign

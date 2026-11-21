@@ -3,7 +3,7 @@ import type { ReminderConfig, Task } from '../types';
 import { generateRecurrenceInstances } from './recurrence';
 
 export const DEFAULT_REMINDER_CONFIG: ReminderConfig = {
-  enabled: false,
+  enabled: true,
   offsets: [10, 30, 60],
   notifyAtDeadline: false,
   priority: 'normal',
@@ -60,8 +60,9 @@ export function formatOffset(minutes: number): string {
 }
 
 export function planReminders(task: Task, now: Date = new Date()): PlannedReminder[] {
-  const config = task.reminder;
-  if (!config?.enabled || task.completed) return [];
+  const config = task.reminder ?? DEFAULT_REMINDER_CONFIG;
+  if (task.completed) return [];
+  if (task.reminder && task.reminder.enabled === false) return [];
 
   const nowMs = now.getTime();
   const horizon = nowMs + HORIZON_DAYS * 24 * 60 * 60 * 1000;

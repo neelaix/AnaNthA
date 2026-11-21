@@ -38,6 +38,52 @@ export const unreadCount = query({
   },
 });
 
+export const insertForReminder = internalMutation({
+  args: {
+    workspaceId: v.string(),
+    reminderId: v.string(),
+    title: v.string(),
+    body: v.string(),
+    category: v.union(
+      v.literal('task-reminder'),
+      v.literal('deadline-alert'),
+      v.literal('daily-motivation'),
+      v.literal('system'),
+    ),
+    taskId: v.optional(v.string()),
+    dedupeKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('notifications')
+      .withIndex('by_reminder', (q) => q.eq('reminderId', args.reminderId))
+      .first();
+    if (existing) return existing._id;
+
+    if (args.dedupeKey) {
+      const duplicate = await ctx.db
+        .query('notifications')
+        .withIndex('by_workspace_dedupe', (q) =>
+          q.eq('workspaceId', args.workspaceId).eq('dedupeKey', args.dedupeKey),
+        )
+        .first();
+      if (duplicate) return duplicate._id;
+    }
+
+    return await ctx.db.insert('notifications', {
+      workspaceId: args.workspaceId,
+      title: args.title.slice(0, 160),
+      body: args.body.slice(0, 500),
+      category: args.category,
+      taskId: args.taskId,
+      reminderId: args.reminderId,
+      dedupeKey: args.dedupeKey,
+      createdAt: Date.now(),
+      read: false,
+    });
+  },
+});
+
 export const insert = internalMutation({
   args: {
     workspaceId: v.string(),

@@ -1,0 +1,17 @@
+{
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/app/(.*)", "dest": "/app/index.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/app/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/app/(index.html|flutter_service_worker.js|manifest.json)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+package app.anantha.anantha
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

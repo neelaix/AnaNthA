@@ -4,12 +4,14 @@ import Sidebar from './Sidebar';
 import FloatingActionButton from '../tasks/FloatingActionButton';
 import TaskForm from '../tasks/TaskForm';
 import NotificationSync from '../notifications/NotificationSync';
+import ToastHost from '../ui/Toast';
 import { useTaskStore } from '../../store/taskStore';
 import { useUIStore } from '../../store/uiStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { DEFAULT_REMINDER_CONFIG } from '../../utils/reminderEngine';
 import { useReminderSync } from '../../hooks/useReminderSync';
+import { useInAppReminders } from '../../hooks/useInAppReminders';
 import { convexEnabled } from '../../lib/convex';
-import { NotificationManager } from '../../utils/notifications';
 
 const Dashboard  = lazy(() => import('../../pages/Dashboard'));
 const Tasks      = lazy(() => import('../../pages/Tasks'));
@@ -67,9 +69,36 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
   const openTask = useUIStore((state) => state.openTask);
 
   useReminderSync();
+  useInAppReminders();
 
   useEffect(() => {
     void useWorkspaceStore.getState().ensure();
+  }, []);
+
+  useEffect(() => {
+    const key = 'anantha-reminder-autoenable-v1';
+    if (localStorage.getItem(key)) return;
+    const store = useTaskStore.getState();
+    for (const task of store.tasks) {
+      if (!task.deadline || task.completed) continue;
+      const reminder = task.reminder;
+      if (!reminder) {
+        store.updateTask(task.id, {
+          reminder: { ...DEFAULT_REMINDER_CONFIG, offsets: [30] },
+        });
+        continue;
+      }
+      const untouched =
+        !reminder.enabled &&
+        !reminder.date &&
+        !reminder.time &&
+        !reminder.message &&
+        !reminder.notifyAtDeadline;
+      if (untouched) {
+        store.updateTask(task.id, { reminder: { ...reminder, enabled: true } });
+      }
+    }
+    localStorage.setItem(key, '1');
   }, []);
 
   useEffect(() => {
@@ -102,15 +131,6 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
     navigator.serviceWorker.addEventListener('message', handleMessage);
     return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
   }, [openTask]);
-
-  useEffect(() => {
-    if (sessionStorage.getItem('anantha-due-checked')) return;
-    useTaskStore
-      .getState()
-      .tasks.filter((task) => !task.completed && task.deadline)
-      .forEach((task) => NotificationManager.notifyTaskDue(task));
-    sessionStorage.setItem('anantha-due-checked', '1');
-  }, []);
 
   const handleOpenTaskForm = () => setIsTaskFormOpen(true);
   const handleCloseTaskForm = () => setIsTaskFormOpen(false);
@@ -167,6 +187,8 @@ const AppLayout: React.FC<AppLayoutProps> = () => {
 
       {/* Task Form Modal */}
       <TaskForm isOpen={isTaskFormOpen} onClose={handleCloseTaskForm} />
+
+      <ToastHost onNavigate={handleNavigate} />
     </div>
   );
 };

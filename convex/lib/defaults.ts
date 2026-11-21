@@ -25,6 +25,10 @@ export const DEFAULT_PREFERENCES: PreferenceValues = {
   dailyMotivationTime: '08:00',
   timezone: 'UTC',
   defaultReminderMinutes: 30,
+  vibration: true,
+  focusMinutes: 25,
+  shortBreakMinutes: 5,
+  longBreakMinutes: 15,
 };
 
 export const MOTIVATION_MESSAGES = [

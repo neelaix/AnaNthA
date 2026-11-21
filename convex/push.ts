@@ -5,6 +5,7 @@ import { v } from 'convex/values';
 import { action, internalAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { authArgs } from './lib/auth';
+import { sendFcm } from './lib/fcm';
 import {
   DEFAULT_PREFERENCES,
   MAX_ATTEMPTS,
@@ -81,7 +82,12 @@ function isPermanent(statusCode?: number): boolean {
 export const sendDue = internalAction({
   args: {},
   handler: async (ctx) => {
-    configureWebPush();
+    let webPushReady = true;
+    try {
+      configureWebPush();
+    } catch (_) {
+      webPushReady = false;
+    }
     const now = Date.now();
     const claimed = (await ctx.runMutation(internal.reminders.claimDue, { now })) as Array<{
       _id: any;
@@ -109,15 +115,6 @@ export const sendDue = internalAction({
       });
       const prefs = preferences ?? DEFAULT_PREFERENCES;
       const attempts = reminder.attempts + 1;
-
-      if (!prefs.pushEnabled) {
-        await ctx.runMutation(internal.reminders.suppress, {
-          reminderId: reminder._id,
-          reason: 'Push notifications are disabled',
-        });
-        suppressed += 1;
-        continue;
-      }
 
       if (reminder.category === 'task-reminder' && !prefs.taskReminders) {
         await ctx.runMutation(internal.reminders.suppress, {
@@ -171,11 +168,34 @@ export const sendDue = internalAction({
         continue;
       }
 
+      await ctx.runMutation(internal.notifications.insertForReminder, {
+        workspaceId: reminder.workspaceId,
+        reminderId: String(reminder._id),
+        title: reminder.title,
+        body: reminder.body,
+        category: reminder.category,
+        taskId: reminder.taskId,
+        dedupeKey: `${reminder.workspaceId}:${reminder.occurrenceId}`,
+      });
+
+      if (!prefs.pushEnabled) {
+        await ctx.runMutation(internal.reminders.suppress, {
+          reminderId: reminder._id,
+          reason: 'Push delivery is disabled; saved to in-app notifications only',
+        });
+        suppressed += 1;
+        continue;
+      }
+
       const subscriptions = await ctx.runQuery(internal.subscriptions.listForWorkspace, {
         workspaceId: reminder.workspaceId,
       });
+      const fcmTokens = await ctx.runQuery(internal.fcm.listForWorkspace, {
+        workspaceId: reminder.workspaceId,
+      });
+      const webSubscriptions = webPushReady ? subscriptions : [];
 
-      if (subscriptions.length === 0) {
+      if (webSubscriptions.length === 0 && fcmTokens.length === 0) {
         await ctx.runMutation(internal.reminders.markResult, {
           reminderId: reminder._id,
           sent: false,
@@ -205,7 +225,7 @@ export const sendDue = internalAction({
       });
 
       const outcomes = await deliver(
-        subscriptions.map((subscription: { endpoint: string; p256dh: string; auth: string }) => ({
+        webSubscriptions.map((subscription: { endpoint: string; p256dh: string; auth: string }) => ({
           endpoint: subscription.endpoint,
           p256dh: subscription.p256dh,
           auth: subscription.auth,
@@ -221,7 +241,53 @@ export const sendDue = internalAction({
       const removeEndpoints = outcomes
         .filter((outcome) => !outcome.ok && isExpired(outcome.statusCode))
         .map((outcome) => outcome.endpoint);
-      const successes = outcomes.filter((outcome) => outcome.ok).length;
+
+      const fcmResults = await Promise.all(
+        fcmTokens.map(async (item: { token: string }) => {
+          try {
+            return {
+              token: item.token,
+              result: await sendFcm(item.token, {
+                title: reminder.title,
+                body: reminder.body,
+                priority: reminder.priority === 'high' ? 'high' : 'normal',
+                channelId:
+                  reminder.category === 'deadline-alert'
+                    ? 'deadline_alerts'
+                    : 'task_reminders',
+                sound: prefs.sound,
+                category: 'ANANTHA_TASK',
+                threadId: reminder.taskId,
+                data: {
+                  taskId: reminder.taskId,
+                  reminderId: String(reminder._id),
+                  category: reminder.category,
+                  route: `/tasks?taskId=${reminder.taskId}`,
+                },
+              }),
+            };
+          } catch (error) {
+            return {
+              token: item.token,
+              result: {
+                ok: false,
+                invalid: false,
+                error: error instanceof Error ? error.message : 'FCM send failed',
+              },
+            };
+          }
+        }),
+      );
+      const invalidTokens = fcmResults
+        .filter((item) => item.result.invalid)
+        .map((item) => item.token);
+      if (invalidTokens.length > 0) {
+        await ctx.runMutation(internal.fcm.prune, { tokens: invalidTokens });
+      }
+
+      const successes =
+        outcomes.filter((outcome) => outcome.ok).length +
+        fcmResults.filter((item) => item.result.ok).length;
 
       if (successes > 0) {
         await ctx.runMutation(internal.reminders.markResult, {
@@ -229,18 +295,12 @@ export const sendDue = internalAction({
           sent: true,
           attempts,
           removeEndpoints,
-          notification: {
-            title: reminder.title,
-            body: reminder.body,
-            category: reminder.category,
-            taskId: reminder.taskId,
-          },
         });
         sent += 1;
         continue;
       }
 
-      const permanent = outcomes.every((outcome) => isPermanent(outcome.statusCode));
+      const permanent = outcomes.length > 0 && outcomes.every((outcome) => isPermanent(outcome.statusCode));
       const retryable = !permanent && attempts < MAX_ATTEMPTS;
       const nextRetryAt = retryable
         ? now + RETRY_DELAYS_MS[Math.min(attempts - 1, RETRY_DELAYS_MS.length - 1)]
@@ -250,7 +310,7 @@ export const sendDue = internalAction({
         reminderId: reminder._id,
         sent: false,
         attempts,
-        error: outcomes[0]?.message || 'All push deliveries failed',
+        error: outcomes[0]?.message || fcmResults.find((item) => item.result.error)?.result.error || 'All push deliveries failed',
         removeEndpoints,
         nextRetryAt,
       });
@@ -352,53 +412,132 @@ export const sendDailyMotivation = internalAction({
   },
 });
 
+export const verifyFcmIntegration = action({
+  args: {},
+  handler: async () => {
+    const result = await sendFcm('dry_run_validation_token_12345678901234567890', {
+      title: 'FCM Verification',
+      body: 'Testing Convex loadServiceAccount & HTTP v1 API',
+      priority: 'normal',
+      data: { test: 'true' },
+    });
+    return {
+      serviceAccountLoaded: true,
+      result,
+    };
+  },
+});
+
 export const sendTest = action({
   args: { ...authArgs },
   handler: async (ctx, args) => {
-    configureWebPush();
+    let webPushReady = false;
+    try {
+      configureWebPush();
+      webPushReady = true;
+    } catch (_) {
+      // Allow FCM-only test notifications if WebPush is not configured
+    }
+
     const { workspaceId } = await ctx.runMutation(internal.subscriptions.authorizeTest, args);
     const subscriptions = await ctx.runQuery(internal.subscriptions.listForWorkspace, {
       workspaceId,
     });
-
-    if (subscriptions.length === 0) {
-      throw new Error('No push subscription found. Enable notifications on this device first.');
-    }
-
-    const payload = JSON.stringify({
-      title: 'ANAṆTHA test notification ∞',
-      body: 'Push notifications are working. Your goals will never go unnoticed.',
-      category: 'system',
-      tag: `test-${Date.now()}`,
-      priority: 'normal',
-      sound: 'default',
-      timestamp: Date.now(),
-      url: '/?page=notifications-settings',
-      actions: [{ action: 'open', title: 'Open settings' }],
+    const fcmTokens = await ctx.runQuery(internal.fcm.listForWorkspace, {
+      workspaceId,
     });
 
-    const outcomes = await deliver(
-      subscriptions.map((subscription: { endpoint: string; p256dh: string; auth: string }) => ({
-        endpoint: subscription.endpoint,
-        p256dh: subscription.p256dh,
-        auth: subscription.auth,
-      })),
-      payload,
-      'normal',
-    );
-
-    const removeEndpoints = outcomes
-      .filter((outcome) => !outcome.ok && isExpired(outcome.statusCode))
-      .map((outcome) => outcome.endpoint);
-    if (removeEndpoints.length > 0) {
-      await ctx.runMutation(internal.subscriptions.pruneEndpoints, { endpoints: removeEndpoints });
+    if (subscriptions.length === 0 && fcmTokens.length === 0) {
+      throw new Error('No push subscription or registered device found. Enable notifications on this device first.');
     }
 
-    const delivered = outcomes.filter((outcome) => outcome.ok).length;
-    if (delivered === 0) {
+    let webDelivered = 0;
+    let webFailed = 0;
+    if (webPushReady && subscriptions.length > 0) {
+      const payload = JSON.stringify({
+        title: 'ANAṆTHA test notification ∞',
+        body: 'Push notifications are working. Your goals will never go unnoticed.',
+        category: 'system',
+        tag: `test-${Date.now()}`,
+        priority: 'normal',
+        sound: 'default',
+        timestamp: Date.now(),
+        url: '/?page=notifications-settings',
+        actions: [{ action: 'open', title: 'Open settings' }],
+      });
+
+      const outcomes = await deliver(
+        subscriptions.map((subscription: { endpoint: string; p256dh: string; auth: string }) => ({
+          endpoint: subscription.endpoint,
+          p256dh: subscription.p256dh,
+          auth: subscription.auth,
+        })),
+        payload,
+        'normal',
+      );
+
+      const removeEndpoints = outcomes
+        .filter((outcome) => !outcome.ok && isExpired(outcome.statusCode))
+        .map((outcome) => outcome.endpoint);
+      if (removeEndpoints.length > 0) {
+        await ctx.runMutation(internal.subscriptions.pruneEndpoints, { endpoints: removeEndpoints });
+      }
+
+      webDelivered = outcomes.filter((outcome) => outcome.ok).length;
+      webFailed = outcomes.length - webDelivered;
+    }
+
+    let fcmDelivered = 0;
+    let fcmFailed = 0;
+    if (fcmTokens.length > 0) {
+      const fcmResults = await Promise.all(
+        fcmTokens.map(async (item: { token: string }) => {
+          try {
+            return {
+              token: item.token,
+              result: await sendFcm(item.token, {
+                title: 'ANAṆTHA test notification ∞',
+                body: 'Push notifications are working. Your goals will never go unnoticed.',
+                priority: 'high',
+                channelId: 'task_reminders',
+                sound: 'default',
+                category: 'ANANTHA_TASK',
+                data: {
+                  category: 'system',
+                  route: '/notifications',
+                },
+              }),
+            };
+          } catch (error) {
+            return {
+              token: item.token,
+              result: {
+                ok: false,
+                invalid: false,
+                error: error instanceof Error ? error.message : 'FCM send failed',
+              },
+            };
+          }
+        }),
+      );
+
+      const invalidTokens = fcmResults
+        .filter((item) => item.result.invalid)
+        .map((item) => item.token);
+      if (invalidTokens.length > 0) {
+        await ctx.runMutation(internal.fcm.prune, { tokens: invalidTokens });
+      }
+
+      fcmDelivered = fcmResults.filter((item) => item.result.ok).length;
+      fcmFailed = fcmResults.length - fcmDelivered;
+    }
+
+    const delivered = webDelivered + fcmDelivered;
+    const totalFailed = webFailed + fcmFailed;
+
+    if (delivered === 0 && (subscriptions.length > 0 || fcmTokens.length > 0)) {
       throw new Error(
-        outcomes[0]?.message ||
-          'Could not deliver the test notification. Check your browser and OS notification settings.',
+        'Could not deliver the test notification. Check your device and OS notification settings.',
       );
     }
 
@@ -409,6 +548,6 @@ export const sendTest = action({
       category: 'system',
     });
 
-    return { delivered, failed: outcomes.length - delivered };
+    return { delivered, failed: totalFailed };
   },
 });

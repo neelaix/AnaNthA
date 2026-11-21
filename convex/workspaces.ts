@@ -10,6 +10,7 @@ export const create = mutation({
     deviceName: v.string(),
     tokenHash: v.string(),
     userAgent: v.optional(v.string()),
+    platform: v.optional(v.union(v.literal('web'), v.literal('android'), v.literal('ios'))),
   },
   handler: async (ctx, args) => {
     if (args.deviceId.length < 8 || args.tokenHash.length !== 64) {
@@ -44,6 +45,7 @@ export const create = mutation({
       deviceId: args.deviceId,
       name: args.deviceName.slice(0, 80) || 'This device',
       tokenHash: args.tokenHash,
+      platform: args.platform,
       userAgent: args.userAgent?.slice(0, 300),
       createdAt: now,
       lastSeenAt: now,
@@ -60,6 +62,7 @@ export const join = mutation({
     deviceName: v.string(),
     tokenHash: v.string(),
     userAgent: v.optional(v.string()),
+    platform: v.optional(v.union(v.literal('web'), v.literal('android'), v.literal('ios'))),
   },
   handler: async (ctx, args) => {
     const code = args.pairCode.trim().toUpperCase();
@@ -86,6 +89,7 @@ export const join = mutation({
       await ctx.db.patch(existing._id, {
         name: args.deviceName.slice(0, 80) || 'This device',
         tokenHash: args.tokenHash,
+      platform: args.platform,
         userAgent: args.userAgent?.slice(0, 300),
         lastSeenAt: now,
       });
@@ -95,6 +99,7 @@ export const join = mutation({
         deviceId: args.deviceId,
         name: args.deviceName.slice(0, 80) || 'This device',
         tokenHash: args.tokenHash,
+      platform: args.platform,
         userAgent: args.userAgent?.slice(0, 300),
         createdAt: now,
         lastSeenAt: now,

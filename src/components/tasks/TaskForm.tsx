@@ -65,7 +65,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
       setReminderConfig(
         editingTask.reminder ?? {
           ...DEFAULT_REMINDER_CONFIG,
-          enabled: Boolean(editingTask.reminderTime),
+          enabled: Boolean(editingTask.reminderTime) || Boolean(editingTask.deadline),
           time: editingTask.time,
           offsets: [
             editingTask.reminderCustomMinutes ?? defaultReminderMinutes,

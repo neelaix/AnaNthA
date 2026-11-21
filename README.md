@@ -6,7 +6,10 @@ A local-first task manager with a React + Vite + TypeScript frontend, an install
 
 ## Features
 
-- Tasks, categories, recurrence, analytics, and focus mode
+- Flutter app (pps/anantha_app) with dashboard, tasks, calendar, focus, analytics, notifications, settings
+- Server-side task store, delta sync, offline outbox, soft deletes
+- FCM HTTP v1 push for Android/iOS plus existing VAPID Web Push
+- Recurrence and reminders planned server-side (timezone/DST aware)
 - Local-first storage for tasks and personal settings
 - Installable PWA with offline fallback
 - Web Push reminders with quiet hours, priorities, retries, and a notification center
@@ -29,6 +32,8 @@ Push notifications require a Convex deployment and VAPID keys. See [SETUP.md](./
 
 ## Notes
 
-- Tasks and reminder configuration stay on-device; only reminders, notification history, device subscriptions, and notification preferences sync to Convex.
+- Tasks, categories, focus sessions, reminder configuration, notifications, devices, and preferences are stored in Convex so web and mobile share one source of truth.
+- Flutter talks to Convex through the official HTTP API with a Hive cache and outbox (polling, not WebSocket).
+- See docs/FLUTTER_SETUP.md for toolchain, Firebase, and build steps.
 - Notification sound/vibration is ultimately controlled by the operating system.
 - iOS requires 16.4+, Safari, and Add to Home Screen.

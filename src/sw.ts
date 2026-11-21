@@ -27,7 +27,7 @@ cleanupOutdatedCaches();
 
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL('index.html'), {
-    denylist: [/^\/push\//],
+    denylist: [/^\/push\//, /^\/app(\/|$)/],
   }),
 );
 

@@ -250,19 +250,6 @@ export const markResult = internalMutation({
     error: v.optional(v.string()),
     removeEndpoints: v.array(v.string()),
     nextRetryAt: v.optional(v.number()),
-    notification: v.optional(
-      v.object({
-        title: v.string(),
-        body: v.string(),
-        category: v.union(
-          v.literal('task-reminder'),
-          v.literal('deadline-alert'),
-          v.literal('daily-motivation'),
-          v.literal('system'),
-        ),
-        taskId: v.optional(v.string()),
-      }),
-    ),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -286,25 +273,6 @@ export const markResult = internalMutation({
         attempts: args.attempts,
         updatedAt: now,
       });
-
-      if (args.notification) {
-        const existingNotification = await ctx.db
-          .query('notifications')
-          .withIndex('by_reminder', (q) => q.eq('reminderId', args.reminderId))
-          .first();
-        if (!existingNotification) {
-          await ctx.db.insert('notifications', {
-            workspaceId: reminder.workspaceId,
-            title: args.notification.title.slice(0, MAX_TITLE_LENGTH),
-            body: args.notification.body.slice(0, MAX_BODY_LENGTH),
-            category: args.notification.category,
-            taskId: args.notification.taskId,
-            reminderId: args.reminderId,
-            createdAt: now,
-            read: false,
-          });
-        }
-      }
       return { ok: true };
     }
 

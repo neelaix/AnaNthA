@@ -61,6 +61,10 @@ export const update = mutation({
     dailyMotivationTime: timeString,
     timezone: v.optional(v.string()),
     defaultReminderMinutes: v.optional(v.number()),
+    vibration: v.optional(v.boolean()),
+    focusMinutes: v.optional(v.number()),
+    shortBreakMinutes: v.optional(v.number()),
+    longBreakMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const device = await requireDevice(ctx, args);
@@ -84,6 +88,10 @@ export const update = mutation({
           dailyMotivationTime: existing.dailyMotivationTime,
           timezone: existing.timezone,
           defaultReminderMinutes: existing.defaultReminderMinutes,
+          vibration: existing.vibration,
+          focusMinutes: existing.focusMinutes,
+          shortBreakMinutes: existing.shortBreakMinutes,
+          longBreakMinutes: existing.longBreakMinutes,
         }
       : DEFAULT_PREFERENCES;
 
@@ -111,6 +119,10 @@ export const update = mutation({
           Math.round(args.defaultReminderMinutes ?? base.defaultReminderMinutes),
         ),
       ),
+      vibration: args.vibration ?? base.vibration ?? true,
+      focusMinutes: Math.max(1, Math.min(120, Math.round(args.focusMinutes ?? (base.focusMinutes ?? 25)))),
+      shortBreakMinutes: Math.max(1, Math.min(60, Math.round(args.shortBreakMinutes ?? (base.shortBreakMinutes ?? 5)))),
+      longBreakMinutes: Math.max(1, Math.min(120, Math.round(args.longBreakMinutes ?? (base.longBreakMinutes ?? 15)))),
       updatedAt: Date.now(),
     };
 

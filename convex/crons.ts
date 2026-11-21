@@ -12,4 +12,18 @@ crons.interval(
   {},
 );
 
+crons.daily(
+  'rebuild reminder horizon',
+  { hourUTC: 3, minuteUTC: 10 },
+  internal.tasks.rebuildReminders,
+  {},
+);
+
+crons.hourly(
+  'roll up daily stats',
+  { minuteUTC: 5 },
+  internal.analytics.rollupToday,
+  {},
+);
+
 export default crons;
